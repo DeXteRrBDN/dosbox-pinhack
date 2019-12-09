@@ -1,0 +1,12 @@
+# IDE
+.buildpath
+.project
+.settings
+.externalToolBuilders
+.idea
+
+# Keep folders that are needed
+!.gitkeep
+
+# macOS
+.DS_Store
