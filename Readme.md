@@ -1,10 +1,25 @@
-# dosbox-pinball-no-scroll
+# dosbox-pinhack
 
 Project to share DOSBox modifications to let Pinball funs play with a no-scroll screen.
 
 ## Original Post at Vogons
 
 https://www.vogons.org/viewtopic.php?f=41&t=12424 
+
+## Tested games
+### Playable
+
+  - Absolute Pinball
+  - Epic Pinball
+  - Pinball 2000
+  - Pinball Dreams I
+  - Pinball Dreams II
+  - Pinball Fantasies
+  - Pinball Illusions
+  - Pinball Mania
+
+### Non-playable
+  - Extreme Pinball *(game still tries to scroll)*
 
 ## Building
 
