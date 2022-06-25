@@ -1,0 +1,253 @@
+diff -ru dosbox-staging-orig/include/pinhacks.h dosbox-staging/include/pinhacks.h
+--- dosbox-staging-orig/include/pinhacks.h      2022-06-17 14:34:47.047090178 +0200
++++ dosbox-staging/include/pinhacks.h   2022-06-17 14:31:36.392623908 +0200
+@@ -0,0 +1,25 @@
++/*
++ * Copyleft:
++ * This file was made to be used with DOSBOX, and so
++ * is under GNU general public license
++ */
++
++#ifndef __DOSBOX_PINHACK_H
++#define __DOSBOX_PINHACK_H
++#define PINHACKVERSION 3 
++
++extern struct scrollhack {
++       bool enabled,trigger;
++       struct { 
++               int min, max;
++       }triggerwidth,triggerheight;
++       struct {int height, width;} expand;
++       struct {struct { bool enabled,trigger;}
++               psychopinball,
++               pinballdreams;
++       }specifichack;
++       const char * doublewidth;
++}pinhack ;
++  
++#endif /* __DOSBOX_PINHACK_H */
++
+diff --git a/src/dos/dos_files.cpp b/src/dos/dos_files.cpp
+index cd4609e8..7b1b2f4f 100644
+--- a/src/dos/dos_files.cpp
++++ b/src/dos/dos_files.cpp
+@@ -29,6 +29,7 @@
+ #include "dos_inc.h"
+ #include "drives.h"
+ #include "cross.h"
++#include "pinhacks.h"
+ 
+ #define DOS_FILESTART 4
+ 
+@@ -535,6 +536,12 @@ bool DOS_OpenFile(char const * name,Bit8u flags,Bit16u * entry,bool fcb) {
+ 	if (flags>2) LOG(LOG_FILES,LOG_ERROR)("Special file open command %X file %s",flags,name);
+ 	else LOG(LOG_FILES,LOG_NORMAL)("file open command %X file %s",flags,name);
+ 
++        if ( pinhack.enabled && pinhack.specifichack.pinballdreams.enabled ) {
++                if ( !strcmp(name,"flippers.spr") ) { printf("PINHACK: pinhackpd: flippers.spr loaded, hack should trigger on next resolution change.\n");
++                pinhack.specifichack.pinballdreams.trigger=true; };
++        }
++
++
+ 	Bit16u attr = 0;
+ 	Bit8u devnum = DOS_FindDevice(name);
+ 	bool device = (devnum != DOS_DEVICES);
+diff --git a/src/dosbox.cpp b/src/dosbox.cpp
+index 8859f269..8c8d8d13 100644
+--- a/src/dosbox.cpp
++++ b/src/dosbox.cpp
+@@ -44,6 +44,7 @@
+ #include "pci_bus.h"
+ #include "midi.h"
+ #include "hardware.h"
++#include "pinhacks.h"
+ 
+ Config * control;
+ MachineType machine;
+@@ -132,6 +133,19 @@ void increaseticks();
+ 
+ bool mono_cga=false;
+ 
++scrollhack pinhack;
++
++void parsetriggerrange (const char*&range,int &min, int &max, char delim) { // PINHACK stuff
++	char* range_delim = const_cast<char*>(strchr(range,delim));
++		if(range_delim && * range_delim) {
++			min = atoi(range);
++			max = atoi(range_delim+1);
++		}    
++		else if (!range_delim) { // single value given
++			max =  min = atoi(range);
++		}    
++}
++
+ static Bitu Normal_Loop(void) {
+ 	Bits ret;
+ 	while (1) {
+@@ -386,6 +400,30 @@ static void DOSBOX_RealInit(Section * sec) {
+ 	else E_Exit("DOSBOX:Unknown machine type %s",mtype.c_str());
+ }
+ 
++static void PINHACK_Init(Section * sec) {
++	Section_prop * section=static_cast<Section_prop *>(sec);
++	/* PINHACK config file parsing */
++	pinhack.enabled=(section->Get_bool("pinhack"));
++	const char* pinhacktriggerwidthrange=section->Get_string("pinhacktriggerwidth");
++	const char* pinhacktriggerheightrange=section->Get_string("pinhacktriggerheight");
++	pinhack.doublewidth=section->Get_string("pinhackdoublewidth");
++	pinhack.expand.height=(section->Get_int("pinhackexpandheight"));
++	pinhack.expand.width=(section->Get_int("pinhackexpandwidth"));
++	parsetriggerrange ( pinhacktriggerheightrange, pinhack.triggerheight.min, pinhack.triggerheight.max, '-' );
++	parsetriggerrange ( pinhacktriggerwidthrange, pinhack.triggerwidth.min, pinhack.triggerwidth.max, '-' );
++	if ( ( pinhack.triggerwidth.min == 0 ) && ( pinhack.triggerwidth.max == 0 ) ) pinhack.triggerwidth.max=9999;
++	printf("PINHACK: Your DOSBox has been hacked with pinball hacks V %d ",PINHACKVERSION);
++	if (pinhack.enabled) { 
++		printf("and enabled in your config file!\n");
++		printf("PINHACK: width settings: trigger at:");
++		printf("%d-%d, expand to %d\n",pinhack.triggerwidth.min, pinhack.triggerwidth.max,pinhack.expand.width);
++		printf("PINHACK: height settings: trigger at:");
++		printf("%d-%d, expand to %d\n",pinhack.triggerheight.min, pinhack.triggerheight.max,pinhack.expand.height);
++		printf("PINHACK: doublewidth: %s\n",pinhack.doublewidth);
++	}
++	else printf("but disabled in your config file!\n");
++	pinhack.specifichack.pinballdreams.enabled=(section->Get_bool("pinhackpd"));
++}
+ 
+ void DOSBOX_Init(void) {
+ 	Section_prop * secprop;
+@@ -415,6 +453,42 @@ void DOSBOX_Init(void) {
+ 		"hercules", "cga", "cga_mono", "tandy", "pcjr", "ega",
+ 		"vgaonly", "svga_s3", "svga_et3000", "svga_et4000",
+ 		"svga_paradise", "vesa_nolfb", "vesa_oldvbe", 0 };
++		
++	// PINHACK: pinhack config file section
++
++	secprop=control->AddSection_prop("pinhack",&PINHACK_Init, true);
++
++	Pbool = secprop->Add_bool("pinhack",Property::Changeable::Always,false);
++	Pbool->Set_help("Boolean: Enable pinball hacks to display whole table at once. Not enabled per default.");
++
++	Pstring = secprop->Add_string("pinhacktriggerwidth",Property::Changeable::Always,"0");
++	Pstring->Set_help("The X resolution (width) the pinball hack should trigger at. It is not checked by default or if set to 0. Can be a range.");
++
++	Pstring = secprop->Add_string("pinhacktriggerheight",Property::Changeable::Always,"350");
++	Pstring->Set_help("The Y resolution (height) the pinball hack should trigger at. Default is 350 (good for Pinball Fantasies). Can be a range.");
++
++	Pint = secprop->Add_int("pinhackexpandwidth",Property::Changeable::Always,0);
++	Pint->SetMinMax(0,4000);
++	Pint->Set_help("The X resolution (width) DOSBox will expand to if pinball hack is enabled and triggers.\n"
++			"Not very useful probably, but provided here in case someone finds a game where it is useful!");
++
++	Pint = secprop->Add_int("pinhackexpandheight",Property::Changeable::Always,608);
++	Pint->SetMinMax(1,4000);
++	Pint->Set_help("The Y resolution (height) DOSBox will expand to if pinball hack is enabled and triggers.");
++
++	Pbool = secprop->Add_bool("pinhackpd",Property::Changeable::Always,false);
++	Pbool->Set_help("Boolean: Enable pinball dreams to work correctly during intros. Default:false\n");
++
++	Pbool = secprop->Add_bool("pinhackpsycho",Property::Changeable::Always,false);
++	Pbool->Set_help("Boolean: Psycho Pinball tilt craphics are messed up if hack enabled. TODO, this is a placeholder and has no function currently.");
++
++	Pstring = secprop->Add_string("pinhackdoublewidth",Property::Changeable::Always,"normal");
++	Pstring->Set_help("Used to enable forcing (or disabling) doublewidth with pinhack. The original patch disabled it,\n"
++			"but you may find it better enabled, or left to decide by dosbox and use aspect ratio correction insread.\n"
++			"normal=do not touch the setting, let DOSBox decide. yes=doublewidth. no=no doublewidth");
++
++// PINHACK: end config file section
++		
+ 	secprop=control->AddSection_prop("dosbox",&DOSBOX_RealInit);
+ 	Pstring = secprop->Add_path("language",Property::Changeable::Always,"");
+ 	Pstring->Set_help("Select another language file.");
+diff --git a/src/hardware/vga_crtc.cpp b/src/hardware/vga_crtc.cpp
+index b6d7377e..af8d3c70 100644
+--- a/src/hardware/vga_crtc.cpp
++++ b/src/hardware/vga_crtc.cpp
+@@ -25,6 +25,7 @@
+ #include "cpu.h"
+ #include "video.h"
+ #include "pic.h"
++#include "pinhacks.h"
+ 
+ #define crtc(blah) vga.crtc.blah
+ 
+@@ -190,11 +191,13 @@ void vga_write_p3d5(Bitu port,Bitu val,Bitu iolen) {
+ 		*/
+ 		break;
+ 	case 0x0C:	/* Start Address High Register */
++if (pinhack.trigger) val=0;
+ 		crtc(start_address_high)=val;
+ 		vga.config.display_start=(vga.config.display_start & 0xFF00FF)| (val << 8);
+ 		/* 0-7  Upper 8 bits of the start address of the display buffer */
+ 		break;
+ 	case 0x0D:	/* Start Address Low Register */
++if (pinhack.trigger) val=0;
+ 		crtc(start_address_low)=val;
+ 		vga.config.display_start=(vga.config.display_start & 0xFFFF00)| val;
+ 		/*	0-7	Lower 8 bits of the start address of the display buffer */
+diff --git a/src/hardware/vga_draw.cpp b/src/hardware/vga_draw.cpp
+index ead77721..ddb05abd 100644
+--- a/src/hardware/vga_draw.cpp
++++ b/src/hardware/vga_draw.cpp
+@@ -25,6 +25,8 @@
+ #include "../gui/render_scalers.h"
+ #include "vga.h"
+ #include "pic.h"
++#include "pinhacks.h"
++#include <cstdio>
+ 
+ //#undef C_DEBUG
+ //#define C_DEBUG 1
+@@ -720,6 +722,7 @@ static void VGA_DrawPart(Bitu lines) {
+ 			vga.draw.address+=vga.draw.address_add;
+ 		}
+ 		vga.draw.lines_done++;
++       if (pinhack.trigger == false) {
+ 		if (vga.draw.split_line==vga.draw.lines_done) {
+ #ifdef VGA_KEEP_CHANGES
+ 			VGA_ChangesEnd( );
+@@ -728,6 +731,7 @@ static void VGA_DrawPart(Bitu lines) {
+ #ifdef VGA_KEEP_CHANGES
+ 			vga.changes.start = vga.draw.address >> VGA_CHANGE_SHIFT;
+ #endif
++               }
+ 		}
+ 	}
+ 	if (--vga.draw.parts_left) {
+@@ -1541,6 +1545,25 @@ void VGA_SetupDrawing(Bitu /*val*/) {
+ 			height/=2;
+ 		}
+ 	}
++	if (pinhack.enabled) {    // Enabled in config?
++	printf("PINHACK: "); // Check for tirggering preconditions...
++	if ( ( !pinhack.specifichack.pinballdreams.enabled || pinhack.specifichack.pinballdreams.trigger ) && 
++            ( height>=pinhack.triggerheight.min && height<=pinhack.triggerheight.max ) &&
++            ( pinhack.triggerwidth.min<=width && width<=pinhack.triggerwidth.max ) ) {
++              	printf("triggered -> ");
++              	pinhack.trigger = true;
++           	printf("original geometry: %dx%d. expanding to geometry: %dx%d.\n",width,height,
++			pinhack.expand.width ? pinhack.expand.width : width,
++			pinhack.expand.height ? pinhack.expand.height : height);
++		// If width or height not set, do not expand!
++		if ( pinhack.expand.height ) height = pinhack.expand.height;
++		if ( pinhack.expand.width ) width = pinhack.expand.width;
++              	if ( pinhack.specifichack.pinballdreams.trigger ) pinhack.specifichack.pinballdreams.trigger=false; // On next resolution change, return to normal
++       } else {
++              	pinhack.trigger = false;
++              	printf("trigger values evalueted but not triggered! Current resolution: %dx%d\n",width,height);
++       };
++}
+ 	vga.draw.lines_total=height;
+ 	vga.draw.parts_lines=vga.draw.lines_total/vga.draw.parts_total;
+ 	vga.draw.line_length = width * ((bpp + 1) / 8);
+@@ -1593,6 +1616,11 @@ void VGA_SetupDrawing(Bitu /*val*/) {
+ 
+ 		vga.draw.width = width;
+ 		vga.draw.height = height;
++       if ( pinhack.trigger ) {
++               if ( pinhack.doublewidth == "yes" ) doublewidth=true;
++               if ( pinhack.doublewidth == "no" ) doublewidth=false;
++               printf("PINHACK: Doublewidth: %s\n",pinhack.doublewidth);
++       }
+ 		vga.draw.doublewidth = doublewidth;
+ 		vga.draw.doubleheight = doubleheight;
+ 		vga.draw.aspect_ratio = aspect_ratio;
