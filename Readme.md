@@ -35,7 +35,7 @@ You will need to follow at least the following steps to be able to compile your 
 
 All people collaborating posting their changes at [Pinball Fantasies no-scroll patch for dosbox 0.65](https://www.vogons.org/viewtopic.php?f=41&t=12424) thread, specially to:
 
-* [felipe.sanchez](https://www.vogons.org/memberlist.php?mode=viewprofile&u=8885)
+* [felipe.sanches](https://www.vogons.org/memberlist.php?mode=viewprofile&u=8885)
 * [Miki Maus](https://www.vogons.org/memberlist.php?mode=viewprofile&u=4502)
 * [Wild-E](https://www.vogons.org/memberlist.php?mode=viewprofile&u=7107)
 * [Ringding](https://www.vogons.org/memberlist.php?mode=viewprofile&u=32540)
