@@ -17,6 +17,7 @@ Index: include/pinhacks.h
 +
 +extern struct scrollhack {
 +	bool enabled,trigger;
++ double aspectratio;
 +	struct { 
 +		int min, max;
 +	}triggerwidth,triggerheight;
@@ -102,10 +103,13 @@ Index: src/hardware/vga_draw.cpp
 +		if ( pinhack.expand.height ) height = pinhack.expand.height;
 +		if ( pinhack.expand.width ) width = pinhack.expand.width;
 +              	if ( pinhack.specifichack.pinballdreams.trigger ) pinhack.specifichack.pinballdreams.trigger=false; // On next resolution change, return to normal
++       aspect_ratio = pinhack.aspectratio;
 +       } else {
 +              	pinhack.trigger = false;
 +              	printf("trigger values evalueted but not triggered! Current resolution: %dx%d\n",width,height);
 +       };
++		//aspect_ratio = ((float)width / (float)height) * ( 25.0 / 7);
++  //aspect_ratio = pinhack.aspectratio;
 +}
  	vga.draw.lines_total=height;
  	vga.draw.parts_lines=vga.draw.lines_total/vga.draw.parts_total;
@@ -188,6 +192,8 @@ Index: src/dosbox.cpp
 +	pinhack.enabled=(section->Get_bool("pinhack"));
 +	const char* pinhacktriggerwidthrange=section->Get_string("pinhacktriggerwidth");
 +	const char* pinhacktriggerheightrange=section->Get_string("pinhacktriggerheight");
++ 		//romans aspect patch
++	pinhack.aspectratio=(double)(section->Get_int("pinhackaspectratio")) /100.0;
 +	pinhack.doublewidth=section->Get_string("pinhackdoublewidth");
 +	pinhack.expand.height=(section->Get_int("pinhackexpandheight"));
 +	pinhack.expand.width=(section->Get_int("pinhackexpandwidth"));
@@ -202,6 +208,11 @@ Index: src/dosbox.cpp
 +		printf("PINHACK: height settings: trigger at:");
 +		printf("%d-%d, expand to %d\n",pinhack.triggerheight.min, pinhack.triggerheight.max,pinhack.expand.height);
 +		printf("PINHACK: doublewidth: %s\n",pinhack.doublewidth);
++		if (pinhack.aspectratio == 0 ){
++		 pinhack.aspectratio=100;
++		 printf("PINHACK: aspectratio not found, adusting to 1\n");
++		 };
++		printf("PINHACK: aspectratio: %f\n",pinhack.aspectratio);
 +	}
 +	else printf("but disabled in your config file!\n");
 +	pinhack.specifichack.pinballdreams.enabled=(section->Get_bool("pinhackpd"));
@@ -247,6 +258,10 @@ Index: src/dosbox.cpp
 +			"but you may find it better enabled, or left to decide by dosbox and use aspect ratio correction insread.\n"
 +			"normal=do not touch the setting, let DOSBox decide. yes=doublewidth. no=no doublewidth");
 +
++
++//romans patch
++ Pint = secprop->Add_int("pinhackaspectratio",Property::Changeable::Always,100);
++	Pint->Set_help("Used to force a custom aspect Ratio onto Dosbox, currently only works in Windowd Mode. Usefull to get Pinball Tables Full Size with 16:9 Screens. Pinball Fantasies value is 1.87");
 +// PINHACK: end config file section
 +		
  	secprop=control->AddSection_prop("dosbox",&DOSBOX_RealInit);
