@@ -258,6 +258,7 @@ Index: src/dosbox.cpp
 +			"but you may find it better enabled, or left to decide by dosbox and use aspect ratio correction insread.\n"
 +			"normal=do not touch the setting, let DOSBox decide. yes=doublewidth. no=no doublewidth");
 +
++
 +//romans patch
 + Pint = secprop->Add_int("pinhackaspectratio",Property::Changeable::Always,100);
 +	Pint->Set_help("Used to force a custom aspect Ratio onto Dosbox, currently only works in Windowd Mode. Usefull to get Pinball Tables Full Size with 16:9 Screens. Pinball Fantasies value is 1.87");
